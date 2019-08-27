@@ -1,0 +1,36 @@
+{
+  "name": "everychat",
+  "version": "0.0.1",
+  "description": "Synchronize your chat everywhere",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SemteulGaram/EveryChat.git"
+  },
+  "keywords": [
+    "chat",
+    "telegram",
+    "kakaotalk",
+    "minecraft",
+    "synchronize",
+    "sync"
+  ],
+  "author": "SemteulGaram",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/SemteulGaram/EveryChat/issues"
+  },
+  "homepage": "https://github.com/SemteulGaram/EveryChat#readme",
+  "devDependencies": {
+    "@types/node": "^12.6.9",
+    "@types/signale": "^1.2.1",
+    "typescript": "^3.5.3"
+  },
+  "dependencies": {
+    "signale": "^1.4.0"
+  }
+}
