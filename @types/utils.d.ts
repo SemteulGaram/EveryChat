@@ -1,0 +1,2 @@
+
+parseInt(float: number): number;

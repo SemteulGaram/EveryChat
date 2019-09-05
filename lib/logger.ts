@@ -17,7 +17,7 @@ const options: any = {
     },
     warn: {
       badge: '!',
-      color: 'red',
+      color: 'yellow',
       label: 'Warning',
       logLevel: 'warn'
     },
@@ -27,28 +27,16 @@ const options: any = {
       label: 'Error',
       logLevel: 'error'
     },
-    running: {
-      badge: '▶',
-      color: 'blue',
-      label: 'Running',
-      logLevel: 'info'
-    },
     connect: {
       badge: '■',
       color: 'blue',
       label: 'Connection',
       logLevel: 'info'
     },
-    [RouteName['RouteKakao']]: {
-      badge: '*',
-      color: 'yellow',
-      label: 'Kakao',
-      logLevel: 'info'
-    },
-    [RouteName['RouteMinecraft']]: {
+    chat: {
       badge: '*',
       color: 'green',
-      label: 'Minecraft',
+      label: 'chat',
       logLevel: 'info'
     }
   }

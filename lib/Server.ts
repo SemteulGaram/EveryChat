@@ -2,17 +2,67 @@ import http from 'http';
 import url from 'url';
 
 import { instance as config } from './config';
-import { RouteKakao, RouteMinecraft } from './internals';
 
 function createRequestListener (server: Server): http.RequestListener {
   return async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
     const mUrl = new url.URL(req.url || '/', 'http://localhost');
-    // Remove leading and trailing slash
-    const paths = mUrl.pathname.replace(/^\/|\/+$/g, '').split('/');
-    if (paths[0] === 'k') {
-      await server.routeKakao.middleware(req, res, paths, mUrl);
-    } else if (paths[0] === 'm') {
-      await server.routeMinecraft.middleware(req, res, paths, mUrl);
+    // Remove leading and trailing slash and spliting
+    //const paths = mUrl.pathname.replace(/^\/|\/+$/g, '').split('/');
+    if (!mUrl.pathname.startsWith('/ec')) return;
+    
+    if (('' + req.method).toUpperCase() === 'POST') { // Normal parse mode
+      new Promise((resolve, reject) => {
+        let content: string = '';
+
+        req.on('data', chunk => {
+          content += chunk;
+        });
+
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(content);
+            // Parse
+            if (!data || !data.m || !data.m.length) {
+              server.logger.warn(`invalid request from ${ req.connection.remoteAddress }`);
+              res.statusCode = 400;
+              res.write('ERR_WRONG_REQUEST');
+              res.end();
+              return reject();
+            }
+            
+            // Send messages to target route
+            for (let msg of data.m) {
+              this.logger[this.NAME](msg);
+            }
+            targetRoute.sendMessage(data.m);
+          } catch (err) {
+            this.logger.error(`${ this.NAME } response JSON parse error:`, err);
+            res.statusCode = 400;
+            res.write('ERR_WRONG_JSON');
+            res.end();
+            return reject();
+          }
+          resolve();
+        });
+
+        req.on('error', err => {
+          this.logger.error('socket error');
+          reject(err);
+        });
+      }).then(() => {
+        res.statusCode = 200;
+        res.write('SUCCESS');
+        res.end();
+      }).catch(err => {
+        if (err) {
+          this.logger.error('Unexpected error:', err);
+          res.statusCode = 500;
+          res.write('ERR_UNEXPECTED');
+          res.end();
+        }
+      });
+    } else {  // fallback parse mode
+
     }
   }
 }
@@ -20,16 +70,9 @@ function createRequestListener (server: Server): http.RequestListener {
 export class Server {
   _httpServer: http.Server;
   logger: any;
-  routeKakao: RouteKakao;
-  routeMinecraft: RouteMinecraft;
 
   constructor (logger: any) {
     this.logger = logger;
-
-    this.routeKakao = new RouteKakao(this);
-    this.routeMinecraft = new RouteMinecraft(this);
-    this.routeKakao.setTargetRoute(this.routeMinecraft);
-    this.routeMinecraft.setTargetRoute(this.routeKakao);
 
     this._httpServer = http.createServer(createRequestListener(this));  
   }
@@ -37,7 +80,7 @@ export class Server {
   start (): void {
     const port: number = config.get('serverPort');
     this._httpServer.listen(port, () => {
-      this.logger.running(`Server start on ${ port }port. Waiting client...`);
+      this.logger.info(`Server start on ${ port }port. Waiting client...`);
     });
   }
 }

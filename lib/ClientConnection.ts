@@ -1,31 +1,32 @@
 import { IncomingMessage, ServerResponse } from 'http';
-
-import { ISendMessage } from '../types/Message';
-import { instance as config } from '../config';
-import { Server } from '../internals';
 import { URL } from 'url';
 
-export abstract class RouteBase {
+import { ISendMessage, IMessage } from './types/HttpMessage';
+import { Server, ChatRoom } from './internals';
+import { instance as config } from './config';
+
+
+export class ClientConnection {
   readonly MAX_QUEUE_SIZE: number;
   readonly MAX_CONCURRENT_TRANSFER_COUNT: number;
   readonly NAME: string;
 
-  ctx: Server;
+  ctx: ChatRoom;
   logger: any;
-  sendQueue: Array<string> = [];
-  targetRoute?: RouteBase;
-
-  constructor (ctx: Server, name: string) {
-    this.NAME = name;
+  id: string;
+  name: string;
+  sendQueue: Array<IMessage> = [];
+  
+  constructor (ctx: ChatRoom, id: string, name?: string) {
+    this.NAME = name || id;
     this.MAX_QUEUE_SIZE = config.get('maxQueueSize');
     this.MAX_CONCURRENT_TRANSFER_COUNT = config.get('maxConcurrentTransferCount');
 
     this.ctx = ctx;
     this.logger = ctx.logger;
-  }
 
-  setTargetRoute(route :RouteBase) {
-    this.targetRoute = route;
+    this.id = id;
+    this.name = name || id;
   }
 
   sendMessage (msgs: Array<string>): void {
@@ -39,11 +40,6 @@ export abstract class RouteBase {
 
   async middleware (req: IncomingMessage, res: ServerResponse, paths: Array<string>, url: URL)
     : Promise<void> {
-
-    if (this.targetRoute == null) {
-      throw new Error('targetRoute not setted');
-    }
-    const targetRoute: RouteBase = this.targetRoute;
 
     if (paths[1] === 'c') {                 // connection
       this.logger.connect(`${ this.NAME } connected: ${ req.connection.remoteAddress }`);
