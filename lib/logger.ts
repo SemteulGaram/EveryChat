@@ -37,7 +37,7 @@ const options: any = {
       badge: '*',
       color: 'green',
       label: 'chat',
-      logLevel: 'info'
+      logLevel: 'debug'
     }
   }
 };

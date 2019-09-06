@@ -1,14 +1,32 @@
 import http from 'http';
 import url from 'url';
 
+import { IRequestMessage, validateRequestMessage } from './types/HttpMessage';
 import { instance as config } from './config';
+import { ChatRoom } from './ChatRoom';
+
+const SUCCESS = JSON.stringify({
+  s: true
+});
+const ERR_INVALID_REQUEST = JSON.stringify({
+  s: false,
+  e: 'ERR_INVALID_REQUEST'
+});
+const ERR_WRONG_JSON = JSON.stringify({
+  s: false,
+  e: 'ERR_WRONG_JSON'
+});
+const ERR_UNEXPECTED = JSON.stringify({
+  s: false,
+  e: 'ERR_UNEXPECTED'
+});
 
 function createRequestListener (server: Server): http.RequestListener {
   return async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
     const mUrl = new url.URL(req.url || '/', 'http://localhost');
     // Remove leading and trailing slash and spliting
     //const paths = mUrl.pathname.replace(/^\/|\/+$/g, '').split('/');
-    if (!mUrl.pathname.startsWith('/ec')) return;
+    if (!(mUrl.pathname === '/ec' || mUrl.pathname === '/ec/')) return;
     
     if (('' + req.method).toUpperCase() === 'POST') { // Normal parse mode
       new Promise((resolve, reject) => {
@@ -20,44 +38,45 @@ function createRequestListener (server: Server): http.RequestListener {
 
         req.on('end', () => {
           try {
-            const data = JSON.parse(content);
             // Parse
-            if (!data || !data.m || !data.m.length) {
-              server.logger.warn(`invalid request from ${ req.connection.remoteAddress }`);
-              res.statusCode = 400;
-              res.write('ERR_WRONG_REQUEST');
+            let data: IRequestMessage|null = null;
+
+            try {
+              data = JSON.parse(content);
+            } catch (err) {
+              server.logger.warn(`request JSON parse error:`, err);
+              res.write(ERR_WRONG_JSON);
               res.end();
               return reject();
             }
             
-            // Send messages to target route
-            for (let msg of data.m) {
-              this.logger[this.NAME](msg);
+            // Message validation test
+            if (!(data = validateRequestMessage(data))) {
+              server.logger.warn(`invalid request from ${ req.connection.remoteAddress }`);
+              res.write(ERR_INVALID_REQUEST);
+              res.end();
+              return reject();
             }
-            targetRoute.sendMessage(data.m);
+
+            const room: ChatRoom = server.ensureGetChatRoom(data.r);
+            room.middleware(req, res, data)
+              .then(() => resolve()).catch((err: any) => reject(err));
           } catch (err) {
-            this.logger.error(`${ this.NAME } response JSON parse error:`, err);
-            res.statusCode = 400;
-            res.write('ERR_WRONG_JSON');
-            res.end();
-            return reject();
+            return reject(err);
           }
-          resolve();
         });
 
         req.on('error', err => {
-          this.logger.error('socket error');
-          reject(err);
+          server.logger.error('socket error');
+          return reject(err);
         });
       }).then(() => {
-        res.statusCode = 200;
-        res.write('SUCCESS');
+        res.write(SUCCESS);
         res.end();
       }).catch(err => {
         if (err) {
-          this.logger.error('Unexpected error:', err);
-          res.statusCode = 500;
-          res.write('ERR_UNEXPECTED');
+          server.logger.error('unexpected error:', err);
+          res.write(ERR_UNEXPECTED);
           res.end();
         }
       });
@@ -70,11 +89,13 @@ function createRequestListener (server: Server): http.RequestListener {
 export class Server {
   _httpServer: http.Server;
   logger: any;
+  rooms: Map<string, ChatRoom>;
 
   constructor (logger: any) {
     this.logger = logger;
+    this.rooms = new Map();
 
-    this._httpServer = http.createServer(createRequestListener(this));  
+    this._httpServer = http.createServer(createRequestListener(this));
   }
 
   start (): void {
@@ -82,5 +103,22 @@ export class Server {
     this._httpServer.listen(port, () => {
       this.logger.info(`Server start on ${ port }port. Waiting client...`);
     });
+  }
+
+  ensureGetChatRoom (id: string): ChatRoom {
+    const room: ChatRoom|undefined = this.rooms.get(id);
+    if (room) return room;
+    else {
+      this.logger.info(`create ChatRoom "${id}"`);
+      const room = new ChatRoom(this, id);
+      this.rooms.set(id, room);
+      return room;
+    }
+  }
+
+  removeChatRoom (id: string): boolean {
+    const success = this.rooms['delete'](id);
+    if (success) this.logger.info(`remove ChatRoom "${id}"`);
+    return success;
   }
 }

@@ -3,39 +3,60 @@ export interface IReqSendText {
   s?: string;   // sender
 }
 
-export function validateReqSendText(reqMsgSend: any): boolean {
-  return reqMsgSend && reqMsgSend.t && typeof reqMsgSend.t === 'string';
+export function validateReqSendText(reqMsgSend: any): IReqSendText|null {
+  if (reqMsgSend && reqMsgSend.t && typeof reqMsgSend.t === 'string') {
+    return {
+      t: reqMsgSend.t,
+      s: reqMsgSend.s
+    }
+  }
+  return null;
 }
 
 export interface IRequestMessage {
   m: string;          // method
-  i?: string;         // id
-  r?: string;         // room
-  v?: IReqSendText;   // value(data)
+  r: string;          // room
+  i?: string;         // id (except request method c)
+  v?: IReqSendText;   // value(data) (request method st)
 }
 /* method list
  * c: requestConnection
  * u: getUpdate
- * st: sendTextMessage (with IReqSendText)
+ * st: sendTextMessage
  */
 
-export function validateRequestMessage(reqMsg: any): boolean {
-  if (reqMsg && reqMsg.m && typeof reqMsg.m === 'string') {
+export function validateRequestMessage(reqMsg: any): IRequestMessage|null {
+  if (reqMsg && reqMsg.m && ['c', 'u', 'st'].indexOf(reqMsg.m) !== -1) {
+    if (typeof reqMsg.r !== 'string') return null;
+    if (reqMsg.m !== 'c' && typeof reqMsg.i !== 'string') return null;
+
     if (reqMsg.m === 'st') {
-      return validateReqSendText(reqMsg.v);
+      const reqSendText: IReqSendText|null = validateReqSendText(reqMsg.v);
+      if (reqSendText) {
+        return {
+          m: reqMsg.m,
+          r: reqMsg.r,
+          i: reqMsg.i,
+          v: reqSendText
+        };
+      }
     } else {
-      return true;
+      return {
+        m: reqMsg.m,
+        r: reqMsg.r,
+        i: reqMsg.i
+      };
     }
   }
-  return false;
+  return null;
 }
 
 export interface IResUpdateElement {
-  t: string;  // type
+  t: string;  // update type
   m?: string; // message(text) (type t)
   s?: string; // sender (type t)
 }
-/* type list
+/* update type list
  * t: text
  */
 
@@ -44,7 +65,8 @@ export interface IResUpdate {
 }
 
 export interface IResponseMessage {
-  s: boolean; // success
-  e?: string; // error code
-  u?: IResUpdate; // update data (IResUpdate)
+  s: boolean;     // success
+  e?: string;     // error code (when none success)
+  i?: string      // id (response method 'c')
+  u?: IResUpdate; // update data (response method 'st')
 }

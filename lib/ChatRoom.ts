@@ -1,5 +1,8 @@
+import http from 'http';
+
 import { Server, ClientConnection } from './internals';
 import { createUid } from './utils';
+import { IRequestMessage } from './types/HttpMessage';
 
 export interface IChatRoomOptions {
   name?: string;
@@ -40,6 +43,12 @@ export class ChatRoom {
     this.clients.reduceRight((pv: ClientConnection, cv: ClientConnection, i: number, a: Array<ClientConnection>) => {
       if (pv.id === id) this.clients.splice(i, 1);
       return cv;
+    });
+  }
+
+  middleware (req: http.IncomingMessage, res: http.ServerResponse, data: IRequestMessage): Promise<void> {
+    return new Promise((resolve, reject) => {
+      
     });
   }
 }
